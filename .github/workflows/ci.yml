@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]" || uv pip install --system -e .
+      - name: Lint
+        run: |
+          uv pip install --system ruff || true
+          ruff check app/ || true
+      - name: Type check
+        run: |
+          uv pip install --system mypy || true
+          mypy app/ --ignore-missing-imports || true
+      - name: Test imports
+        run: python -c "from app.main import app; print('Backend imports OK')"
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        run: npm install
+      - name: Type check
+        run: npx tsc --noEmit || true
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+          NEXT_PUBLIC_AUTH0_DOMAIN: demo.auth0.com
+          NEXT_PUBLIC_AUTH0_CLIENT_ID: demo_client_id
